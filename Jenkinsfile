@@ -1,37 +1,69 @@
 pipeline {
   agent any
   options { timestamps() }
+
   stages {
-    stage('Cloner le dépôt') {
+
+    stage('Checkout') {
       steps {
-        git url: 'https://github.com/assil-adouni/mon-projet.git', branch: 'main'
-      }
-    }
-    stage('Étape 1 : Vérification du dépôt') {
-      steps {
-        bat 'echo === Étape 1 : Vérification du dépôt ==='
+        echo '=== Checkout : récupération du code depuis Git ==='
+        checkout scm
         bat 'git status'
       }
     }
-    stage('Étape 2 : Afficher le contenu du projet') {
+
+    stage('Build') {
       steps {
-        bat 'echo === Étape 2 : Afficher le contenu du projet ==='
+        echo '=== Build : existence de index.html et style.css ==='
+        script {
+          if (!fileExists('index.html')) {
+            error('Build échoué : index.html est introuvable')
+          }
+          echo 'index.html existe'
+          if (!fileExists('style.css')) {
+            error('Build échoué : style.css est introuvable')
+          }
+          echo 'style.css existe'
+        }
         bat 'dir'
       }
     }
-    stage('Étape 3 : Simuler un déploiement local') {
+
+    stage('Test') {
       steps {
-        bat 'echo === Étape 3 : Simuler un déploiement local ==='
-        bat 'echo Le fichier index.html est prêt à être affiché'
+        echo '=== Test : existence des balises html et h1 ==='
+        script {
+          def contenu = readFile(file: 'index.html', encoding: 'UTF-8').toLowerCase()
+          if (!contenu.contains('<html')) {
+            error('Test échoué : la balise <html> est absente de index.html')
+          }
+          echo 'La balise <html> existe'
+          if (!contenu.contains('<h1')) {
+            error('Test échoué : la balise <h1> est absente de index.html')
+          }
+          echo 'La balise <h1> existe'
+        }
       }
     }
-    stage('Étape 4 : Fin du build') {
+
+    stage('Deploy') {
       steps {
-        bat 'echo === Étape 4 : Fin du build ==='
-        bat 'echo SUCCESS'
+        echo '=== Deploy : déploiement local ==='
+        bat 'if not exist deploy mkdir deploy'
+        bat 'copy /Y index.html deploy\\'
+        bat 'copy /Y style.css deploy\\'
+        bat 'dir deploy'
+      }
+    }
+
+    stage('Archive') {
+      steps {
+        echo '=== Archivage des artefacts ==='
+        archiveArtifacts artifacts: 'deploy/**', fingerprint: true
       }
     }
   }
+
   post {
     success { echo 'Build OK' }
     failure { echo 'Build KO' }
